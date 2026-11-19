@@ -32,6 +32,12 @@
   .legend i { display:inline-block; width:2.2vw; height:0; border-top:3px solid; vertical-align:middle; margin-right:0.4vw; }
   #hist { list-style:none; margin:0.8vh 0 0; padding:0; font-size:2.1vh; line-height:1.7; }
   #hist li b.n { color:var(--blue); } #hist li b.d { color:var(--red); } #hist li.x { color:var(--gray); }
+  .ctrl { display:flex; justify-content:center; gap:1.6vw; margin-top:1.6vh; }
+  .ctrl button { font-family:inherit; font-size:2.4vh; font-weight:700; padding:1.1vh 2.6vw; border-radius:12px;
+    border:2px solid var(--blue); background:var(--blue); color:#fff; cursor:pointer; min-width:16vw; }
+  .ctrl button.end { background:#fff; color:var(--blue); }
+  .ctrl button:disabled { border-color:#c9ced6; background:#eef0f3; color:#9aa1ab; cursor:default; }
+  .ctrl button.wait { opacity:0.6; }
   footer { font-size:1.5vh; color:var(--gray); display:flex; justify-content:space-between; }
 </style>
 </head>
@@ -45,6 +51,10 @@
   <div id="big">대기 중</div>
   <div id="sub">시연 노트북에서 판정 프로그램을 시작하면 결과가 여기에 표시됩니다</div>
   <div class="dots" id="dots"></div>
+  <div class="ctrl">
+    <button id="bStart" onclick="sendCmd('start')">검사 시작</button>
+    <button id="bEnd" class="end" onclick="sendCmd('end')">검사 종료</button>
+  </div>
 </section>
 
 <section class="row">
@@ -168,6 +178,14 @@ const AMBER = "#b7791f", INK = "#333";
 let testing = false;
 function votesN() { return cfg ? cfg.votes : 3; }
 function handle(ev) {
+  handle2(ev);
+  if (ev.kind === "test_start") { judging = false; if (waitCmd === "start") waitCmd = null; }
+  if (ev.kind === "test_end") { judging = true; if (waitCmd === "end") waitCmd = null; }
+  if (ev.kind === "final" || ev.kind === "start" || ev.kind === "reset") judging = false;
+  if (ev.kind === "cancel") { judging = false; if (waitCmd === "end") waitCmd = null; }
+  updateButtons();
+}
+function handle2(ev) {
   const p = ev.payload || {};
   if (ev.kind === "start") {
     cfg = p; clearRound(); drawSpec(null); $("nv").textContent = p.votes || 3; testing = false;
@@ -206,6 +224,28 @@ function handle(ev) {
   }
 }
 
+/* ---------- 버튼 (명령은 인터넷을 거쳐 시연 노트북으로 전달) ---------- */
+let judging = false, linked = false, waitCmd = null;
+function updateButtons() {
+  const bs = $("bStart"), be = $("bEnd");
+  bs.disabled = !linked || testing || judging || waitCmd !== null;
+  be.disabled = !linked || !testing || waitCmd !== null;
+  bs.classList.toggle("wait", waitCmd === "start"); be.classList.toggle("wait", waitCmd === "end");
+  bs.textContent = waitCmd === "start" ? "시작하는 중..." : "검사 시작";
+  be.textContent = waitCmd === "end" ? "종료하는 중..." : "검사 종료";
+}
+async function sendCmd(cmd) {
+  if (waitCmd) return;
+  waitCmd = cmd; updateButtons();
+  try {
+    const r = await fetch(SUPABASE_URL + "/rest/v1/demo_commands", { method: "POST",
+      headers: Object.assign({ "Content-Type": "application/json", Prefer: "return=minimal" }, H),
+      body: JSON.stringify({ session: SESSION, cmd: cmd }) });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+  } catch (e) { waitCmd = null; updateButtons(); return; }
+  setTimeout(() => { if (waitCmd === cmd) { waitCmd = null; updateButtons(); } }, 4000);
+}
+
 /* ---------- 서버에서 가져오기 ---------- */
 async function get(path) {
   const r = await fetch(SUPABASE_URL + "/rest/v1/" + path, { headers: H, cache: "no-store" });
@@ -235,6 +275,7 @@ async function status() {
     fetchOk = true;
   } catch (e) { fetchOk = false; }
   const c = $("conn");
+  linked = fetchOk && (Date.now() - lastStatusSeen < 8000); updateButtons();
   if (!fetchOk) { c.textContent = "인터넷 연결 안 됨"; c.className = "badge off"; }
   else if (Date.now() - lastStatusSeen < 8000) { c.textContent = "시연 노트북 연결됨"; c.className = "badge on"; }
   else { c.textContent = "시연 노트북 신호 없음"; c.className = "badge off"; }
