@@ -4,80 +4,137 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>똑똑 KnockKnock · 타격음 진공 열화 판정</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
-  :root { --blue:#1f5fa8; --red:#c0392b; --gray:#8a8f98; --ink:#1b1f24; --line:#d9dde3; --bg:#ffffff; --soft:#f4f6f9; }
-  * { box-sizing: border-box; }
+  /* 정상·열화 색 = 보고서 그래프 색. 작은 글씨용 열화색은 대비를 위해 같은 계열의 진한 색 */
+  :root { --ink:#1f2328; --mute:#6a737d; --faint:#a8b0b9; --line:#e3e6ea; --bg:#f5f6f7;
+          --norm:#2f4b7c; --deg:#3aa38f; --degt:#24806f; --err:#c5392f; --amber:#a86a00; --track:#eef0f2; }
+  * { box-sizing:border-box; }
   html, body { margin:0; height:100%; background:var(--bg); color:var(--ink);
-    font-family: "Malgun Gothic","맑은 고딕","Apple SD Gothic Neo","Noto Sans KR","Noto Sans CJK KR",sans-serif; }
-  body { display:flex; flex-direction:column; padding:2.2vh 2.6vw; gap:1.6vh; }
-  header { display:flex; align-items:center; justify-content:space-between; }
-  header h1 { margin:0; font-size:2.6vh; font-weight:700; letter-spacing:-0.02em; }
-  header h1 span { color:var(--gray); font-weight:400; margin-left:0.8em; }
-  .badge { font-size:1.8vh; padding:0.5vh 1.1vw; border-radius:99px; background:var(--soft); color:var(--gray); white-space:nowrap; }
-  .badge.on { background:#e7f4ea; color:#24723a; }
-  .badge.off { background:#fbeaea; color:var(--red); }
-  .verdict { flex:0 0 auto; text-align:center; padding:2.2vh 0 1.4vh; border:1px solid var(--line); border-radius:14px; }
-  #big { font-size:11vh; font-weight:800; line-height:1.1; letter-spacing:-0.03em; color:var(--gray); }
-  #sub { font-size:2.6vh; margin-top:1vh; color:#444; min-height:3.2vh; }
-  .dots { display:flex; justify-content:center; gap:1.2vw; margin-top:1.4vh; }
-  .dot { width:2.6vh; height:2.6vh; border-radius:50%; border:2px solid var(--line); }
-  .dot.n { background:var(--blue); border-color:var(--blue); } .dot.d { background:var(--red); border-color:var(--red); }
-  .dot.g { background:#555; border-color:#555; }
-  .row { flex:1 1 auto; display:grid; grid-template-columns: 1.35fr 1fr; gap:1.6vw; min-height:0; }
-  .card { border:1px solid var(--line); border-radius:14px; padding:1.4vh 1.2vw; display:flex; flex-direction:column; min-height:0; }
-  .card h2 { margin:0 0 0.8vh; font-size:2vh; font-weight:700; color:#333; }
-  .card h2 small { font-weight:400; color:var(--gray); margin-left:0.5em; }
-  svg { width:100%; flex:1 1 auto; min-height:0; }
-  .legend { display:flex; gap:1.4vw; font-size:1.6vh; color:#444; margin-top:0.6vh; flex-wrap:wrap; }
-  .legend i { display:inline-block; width:2.2vw; height:0; border-top:3px solid; vertical-align:middle; margin-right:0.4vw; }
-  #hist { list-style:none; margin:0.8vh 0 0; padding:0; font-size:2.1vh; line-height:1.7; }
-  #hist li b.n { color:var(--blue); } #hist li b.d { color:var(--red); } #hist li.x { color:var(--gray); }
-  .ctrl { display:flex; justify-content:center; gap:1.6vw; margin-top:1.6vh; }
-  .ctrl button { font-family:inherit; font-size:2.4vh; font-weight:700; padding:1.1vh 2.2vw; border-radius:12px;
-    border:2px solid var(--blue); background:var(--blue); color:#fff; cursor:pointer; min-width:14vw; }
-  .ctrl button#bHome { border-color:#9aa1ab; color:#555; }
-  .ctrl button.end { background:#fff; color:var(--blue); }
-  .ctrl button:disabled { border-color:#c9ced6; background:#eef0f3; color:#9aa1ab; cursor:default; }
-  .ctrl button.wait { opacity:0.6; }
-  footer { font-size:1.5vh; color:var(--gray); display:flex; justify-content:space-between; }
+    font-family:"Noto Sans KR","Noto Sans CJK KR","Malgun Gothic","맑은 고딕",sans-serif; font-weight:400;
+    -webkit-font-smoothing:antialiased; }
+  body { display:grid; grid-template-rows:auto 1fr auto; height:100vh; padding:0 2.6vw; }
+  .num { font-variant-numeric:tabular-nums; }
+  header { display:flex; align-items:center; justify-content:space-between; padding:2.6vh 0 2.2vh; }
+  header h1 { margin:0; font-size:2.6vh; font-weight:700; letter-spacing:-0.01em; }
+  header h1 span { font-weight:400; color:var(--mute); margin-left:1.1em; font-size:2.1vh; }
+  .badge { font-size:1.8vh; color:var(--mute); white-space:nowrap; }
+  .badge::before { content:""; display:inline-block; width:1vh; height:1vh; border-radius:50%;
+                   background:var(--faint); margin-right:0.5vw; vertical-align:0.15vh; }
+  .badge.on::before { background:#2e9e5b; } .badge.on { color:var(--ink); }
+  .badge.off::before { background:var(--err); } .badge.off { color:var(--err); }
+
+  main { display:grid; grid-template-columns:1fr 0.92fr 1.12fr; gap:2.8vw; min-height:0; padding-bottom:2vh; }
+  .panel { background:#fff; border:1px solid var(--line); border-radius:8px;
+           display:flex; flex-direction:column; min-height:0; position:relative; }
+  .panel + .panel::before { content:""; position:absolute; left:calc(-2.8vw - 1px); width:2.8vw; top:50%; border-top:1px solid #c9ced4; }
+  .ph { padding:2vh 1.5vw 0; display:flex; align-items:baseline; gap:0.7vw; }
+  .ph .k { font-size:1.6vh; color:var(--faint); font-weight:500; }
+  .ph .t { font-size:2.2vh; font-weight:500; }
+  .pb { padding:1.6vh 1.5vw 2vh; display:flex; flex-direction:column; min-height:0; flex:1 1 auto; }
+  .note { font-size:1.5vh; color:var(--mute); line-height:1.55; }
+
+  svg { display:block; width:100%; }
+  #spec { flex:1 1 auto; min-height:0; }
+  .legend { display:flex; flex-direction:column; gap:0.4vh; font-size:1.6vh; color:#444c55; margin-top:1vh; }
+  .legend i { display:inline-block; width:2vw; border-top:2.5px solid; vertical-align:middle; margin-right:0.5vw; }
+
+  #hits { margin-top:2.2vh; }
+  .hit { display:grid; grid-template-columns:4.2vw 1fr auto; align-items:baseline; padding:1.4vh 0; border-top:1px solid var(--line); }
+  .hit:last-child { border-bottom:1px solid var(--line); }
+  .hit .i { font-size:1.7vh; color:var(--mute); }
+  .hit .f { font-size:3.1vh; font-weight:500; color:#c9ced4; letter-spacing:-0.01em; }
+  .hit .f small { font-size:1.6vh; font-weight:400; margin-left:0.3em; color:var(--mute); }
+  .hit.on .f { color:var(--ink); }
+  .hit .l { font-size:1.9vh; font-weight:500; color:var(--mute); }
+  .hit .l::before { content:""; display:inline-block; width:1vh; height:1vh; border-radius:50%; margin-right:0.5vw;
+                    background:transparent; vertical-align:0.15vh; }
+  .hit.g .l::before { background:var(--faint); }
+  .hit.n .l { color:var(--norm); } .hit.n .l::before { background:var(--norm); }
+  .hit.d .l { color:var(--degt); } .hit.d .l::before { background:var(--deg); }
+  #hist { font-size:1.7vh; color:var(--err); min-height:2.4vh; margin-top:1vh; }
+
+  #big { font-size:12.5vh; font-weight:500; line-height:1.1; letter-spacing:-0.045em; color:#c9ced4; margin-top:1.2vh; }
+  #big2 { font-size:3.2vh; font-weight:400; min-height:4.2vh; color:var(--mute); margin-top:0.4vh; letter-spacing:-0.01em; }
+  #sub { font-size:1.95vh; color:#444c55; margin-top:1.2vh; min-height:2.8vh; }
+
+  .votes { margin-top:auto; }
+  .votes .cap { font-size:1.55vh; color:var(--mute); margin-bottom:1.2vh; }
+  .vrow { display:grid; grid-template-columns:4.2vw 1fr 6.2vw; align-items:center; gap:0.8vw; margin-bottom:1.1vh; }
+  .vrow b { font-size:2.1vh; font-weight:500; }
+  .vrow.n b { color:var(--norm); } .vrow.d b { color:var(--degt); }
+  .track { height:2.6vh; background:var(--track); border-radius:99px; overflow:hidden; position:relative; }
+  .fill { height:100%; width:0; border-radius:99px; transition:width .5s ease; }
+  .vrow.n .fill { background:var(--norm); } .vrow.d .fill { background:var(--deg); }
+  .val { font-size:2.1vh; font-weight:500; text-align:right; color:var(--ink); white-space:nowrap; }
+  .val small { color:var(--mute); font-weight:400; font-size:1.6vh; margin-left:0.3em; }
+  .val.mute { color:var(--faint); font-size:1.6vh; font-weight:400; }
+
+  .ctrl { display:flex; gap:0.6vw; margin-top:1.8vh; padding-top:1.8vh; border-top:1px solid var(--line); }
+  .ctrl button { font-family:inherit; font-size:2vh; font-weight:500; padding:1.2vh 1.2vw; border-radius:6px;
+    border:1px solid var(--ink); background:var(--ink); color:#fff; cursor:pointer; flex:1; }
+  .ctrl button.end { background:#fff; color:var(--ink); border-color:#c9ced4; }
+  .ctrl button#bHome { color:var(--mute); flex:0.8; }
+  .ctrl button:disabled { border-color:var(--track); background:var(--track); color:var(--faint); cursor:default; }
+  .ctrl button.wait { opacity:0.55; }
+
+  footer { display:flex; justify-content:space-between; font-size:1.45vh; color:var(--faint); padding:0 0 1.6vh; }
 </style>
 </head>
 <body>
 <header>
-  <h1>똑똑 KnockKnock<span>타격음으로 진공 이중벽 텀블러의 진공 열화 판정</span></h1>
+  <h1>똑똑 KnockKnock<span>타격음으로 이중벽 텀블러의 진공 열화를 판정합니다</span></h1>
   <div id="conn" class="badge">연결 확인 중</div>
 </header>
 
-<section class="verdict">
-  <div id="big">대기 중</div>
-  <div id="sub">시연 노트북에서 판정 프로그램을 시작하면 결과가 여기에 표시됩니다</div>
-  <div class="dots" id="dots"></div>
-  <div class="ctrl">
-    <button id="bStart" onclick="sendCmd('start')">검사 시작</button>
-    <button id="bEnd" class="end" onclick="sendCmd('end')">검사 종료</button>
-    <button id="bHome" class="end" onclick="sendCmd('reset')">처음 화면</button>
-  </div>
-</section>
-
-<section class="row">
-  <div class="card">
-    <h2>타격음 스펙트럼<small>가로: 주파수(Hz), 세로: 세기(dB, 가장 센 값 = 0)</small></h2>
-    <svg id="spec" viewBox="0 0 800 380" preserveAspectRatio="xMidYMid meet"></svg>
-    <div class="legend">
-      <span><i style="border-color:var(--blue);border-top-style:dashed"></i>정상 평균 (학습)</span>
-      <span><i style="border-color:var(--red);border-top-style:dashed"></i>열화 평균 (학습)</span>
-      <span><i style="border-color:#111"></i>방금 친 소리</span>
+<main>
+  <section class="panel">
+    <div class="ph"><span class="k">01</span><span class="t">타격음 스펙트럼</span></div>
+    <div class="pb">
+      <svg id="spec" viewBox="0 0 600 690" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="legend">
+        <span><i style="border-color:var(--norm);border-top-style:dashed"></i>정상 평균 (학습)</span>
+        <span><i style="border-color:var(--deg);border-top-style:dashed"></i>열화 평균 (학습)</span>
+        <span><i style="border-color:var(--ink)"></i>방금 친 소리</span>
+      </div>
+      <div class="note" style="margin-top:0.8vh">가로: 주파수(Hz) · 세로: 세기(dB, 최댓값 = 0)</div>
     </div>
-  </div>
-  <div class="card">
-    <h2>주 공진 주파수<small>띠 = 학습 녹음별 평균의 범위</small></h2>
-    <svg id="bar" viewBox="0 0 600 150" preserveAspectRatio="xMidYMid meet" style="flex:0 0 auto;height:15vh"></svg>
-    <ul id="hist"></ul>
-  </div>
-</section>
+  </section>
+
+  <section class="panel">
+    <div class="ph"><span class="k">02</span><span class="t">주 공진 주파수</span></div>
+    <div class="pb">
+      <svg id="bar" viewBox="0 0 600 200" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="note">띠 = 학습 녹음별 평균의 범위 (Hz)<br>판정은 이 값을 포함한 특징으로 분류기가 내림</div>
+      <div id="hits" class="num"></div>
+      <div id="hist"></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="ph"><span class="k">03</span><span class="t">판정 결과</span></div>
+    <div class="pb">
+      <div id="big">대기 중</div>
+      <div id="big2"></div>
+      <div id="sub">시연 노트북에서 판정 프로그램을 시작하면 결과가 여기에 표시됩니다</div>
+      <div class="votes num">
+        <div class="cap" id="vcap">유효 타격 <span id="nv">3</span>회 다수결 · 득표율</div>
+        <div class="vrow n"><b>정상</b><div class="track"><div class="fill" id="vn"></div></div><span class="val" id="vz0"></span></div>
+        <div class="vrow d"><b>열화</b><div class="track"><div class="fill" id="vd"></div></div><span class="val" id="vz1"></span></div>
+      </div>
+      <div class="ctrl">
+        <button id="bStart" onclick="sendCmd('start')">검사 시작</button>
+        <button id="bEnd" class="end" onclick="sendCmd('end')">검사 종료</button>
+        <button id="bHome" class="end" onclick="sendCmd('reset')">처음 화면</button>
+      </div>
+    </div>
+  </section>
+</main>
 
 <footer>
-  <span>판정은 시연 노트북에서 계산되어 실시간으로 전송됩니다 · 검사 1회 = 유효 타격 <span id="nv">3</span>회 다수결</span>
+  <span>판정은 시연 노트북에서 계산되어 실시간으로 전송됩니다</span>
   <span id="sess"></span>
 </footer>
 
@@ -91,7 +148,7 @@ const POLL_MS = 400;
 
 const H = { apikey: ANON_KEY, Authorization: "Bearer " + ANON_KEY };
 const $ = id => document.getElementById(id);
-const BLUE = "#1f5fa8", RED = "#c0392b", GRAY = "#8a8f98";
+const BLUE = "#2f4b7c", RED = "#3aa38f", GRAY = "#8a8f98";  /* BLUE = 정상, RED = 열화 (보고서 그래프 색) */
 $("sess").textContent = "세션: " + SESSION;
 
 let cfg = null;          // start 이벤트 내용 (기준 스펙트럼, 범위, 다수결 수)
@@ -102,55 +159,62 @@ let lastStatusStamp = null, lastStatusSeen = 0;
 let fetchOk = true;
 
 /* ---------- 그리기 ---------- */
-const PL = 58, PR = 30;   /* 스펙트럼 그림 좌우 여백 */
+const PL = 44, PR = 22, PT = 10;
 function specPath(arr, grid, w, h) {
   if (!arr) return "";
   const [f0, f1, n] = grid;
   return arr.map((v, i) => {
     const x = PL + (i / (n - 1)) * (w - PL - PR);
-    const y = Math.min(h, Math.max(0, (-v / 40) * h));
+    const y = PT + Math.min(h, Math.max(0, (-v / 40) * h));
     return (i ? "L" : "M") + x.toFixed(1) + " " + y.toFixed(1);
   }).join(" ");
 }
 function drawSpec(cur) {
-  const W = 800, Hh = 340, svg = $("spec");
+  const W = 600, Hh = 640, svg = $("spec");
   const grid = cfg ? cfg.grid : [3400, 4600, 241];
   let s = "";
   for (let db = 0; db <= 40; db += 10) {
-    const y = db / 40 * Hh;
-    s += `<line x1="${PL}" x2="${W - PR}" y1="${y}" y2="${y}" stroke="#eceef2"/>`;
-    s += `<text x="${PL - 6}" y="${y + 5}" font-size="14" fill="#999" text-anchor="end">${-db}</text>`;
+    const y = PT + db / 40 * Hh;
+    s += `<line x1="${PL}" x2="${W - PR}" y1="${y}" y2="${y}" stroke="${db === 40 ? "#9aa0a6" : "#eceff1"}"/>`;
+    s += `<text x="${PL - 8}" y="${y + 5}" font-size="15" fill="#6a737d" text-anchor="end">${-db}</text>`;
   }
-  for (let f = 3400; f <= 4600; f += 200) {
+  for (let f = 3400; f <= 4600; f += 400) {
     const x = PL + (f - grid[0]) / (grid[1] - grid[0]) * (W - PL - PR);
-    s += `<line x1="${x}" x2="${x}" y1="0" y2="${Hh}" stroke="#eceef2"/>`;
-    s += `<text x="${x}" y="${Hh + 26}" font-size="15" fill="#666" text-anchor="middle">${f.toLocaleString()}</text>`;
+    s += `<line x1="${x}" x2="${x}" y1="${PT}" y2="${PT + Hh}" stroke="#eceff1"/>`;
+    s += `<text x="${x}" y="${PT + Hh + 26}" font-size="16" fill="#6a737d" text-anchor="middle">${f.toLocaleString()}</text>`;
   }
   if (cfg && cfg.ref) {
-    if (cfg.ref["정상"]) s += `<path d="${specPath(cfg.ref["정상"], grid, W, Hh)}" fill="none" stroke="${BLUE}" stroke-width="2.5" stroke-dasharray="8 6"/>`;
-    if (cfg.ref["열화"]) s += `<path d="${specPath(cfg.ref["열화"], grid, W, Hh)}" fill="none" stroke="${RED}" stroke-width="2.5" stroke-dasharray="8 6"/>`;
+    if (cfg.ref["정상"]) s += `<path d="${specPath(cfg.ref["정상"], grid, W, Hh)}" fill="none" stroke="${BLUE}" stroke-width="2.2" stroke-dasharray="7 5"/>`;
+    if (cfg.ref["열화"]) s += `<path d="${specPath(cfg.ref["열화"], grid, W, Hh)}" fill="none" stroke="${RED}" stroke-width="2.2" stroke-dasharray="7 5"/>`;
   }
-  if (cur) s += `<path d="${specPath(cur, grid, W, Hh)}" fill="none" stroke="#111" stroke-width="3.5"/>`;
+  if (cur) s += `<path d="${specPath(cur, grid, W, Hh)}" fill="none" stroke="#1f2328" stroke-width="2.8"/>`;
   svg.innerHTML = s;
 }
 function drawBar() {
-  const W = 600, svg = $("bar");
+  const W = 600, svg = $("bar"), Y0 = 40, Y1 = 128;
   if (!cfg || !cfg.ranges) { svg.innerHTML = ""; return; }
   const r = cfg.ranges.f_main, n = r["정상"], d = r["열화"];
-  const lo = n[0], hi = d[1], pad = 0.4 * (hi - lo), x0 = lo - pad, x1 = hi + pad;
-  const X = f => (f - x0) / (x1 - x0) * W;
-  let s = `<rect x="${X(n[0])}" y="20" width="${Math.max(3, X(n[1]) - X(n[0]))}" height="80" fill="${BLUE}" opacity="0.22"/>`;
-  s += `<rect x="${X(d[0])}" y="20" width="${Math.max(3, X(d[1]) - X(d[0]))}" height="80" fill="${RED}" opacity="0.22"/>`;
-  s += `<text x="${X((n[0]+n[1])/2)}" y="16" font-size="15" fill="${BLUE}" text-anchor="middle">정상</text>`;
-  s += `<text x="${X((d[0]+d[1])/2)}" y="16" font-size="15" fill="${RED}" text-anchor="middle">열화</text>`;
-  const step = (x1 - x0) > 600 ? 200 : 100;
-  for (let f = Math.ceil(x0 / step) * step; f <= x1; f += step)
-    s += `<text x="${X(f)}" y="130" font-size="15" fill="#666" text-anchor="middle">${f.toLocaleString()}</text>`;
-  s += `<line x1="0" x2="${W}" y1="100" y2="100" stroke="#bbb"/>`;
-  round.forEach(h => {
-    const x = Math.max(2, Math.min(W - 2, X(h.f_main)));
-    const c = finalDone ? (h.pred ? RED : BLUE) : GRAY;
-    s += `<line x1="${x}" x2="${x}" y1="22" y2="100" stroke="${c}" stroke-width="5"/>`;
+  const lo = Math.min(n[0], d[0]), hi = Math.max(n[1], d[1]);
+  const pad = 0.3 * (hi - lo), x0 = lo - pad, x1 = hi + pad;
+  const X = f => 8 + (f - x0) / (x1 - x0) * (W - 16);
+  let s = "";
+  s += `<rect x="${X(n[0])}" y="${Y0}" width="${Math.max(4, X(n[1]) - X(n[0]))}" height="${Y1 - Y0}" rx="4" fill="${BLUE}" opacity="0.2"/>`;
+  s += `<rect x="${X(d[0])}" y="${Y0}" width="${Math.max(4, X(d[1]) - X(d[0]))}" height="${Y1 - Y0}" rx="4" fill="${RED}" opacity="0.18"/>`;
+  s += `<text x="${X((n[0]+n[1])/2)}" y="${Y0 - 12}" font-size="19" font-weight="500" fill="${BLUE}" text-anchor="middle">정상</text>`;
+  s += `<text x="${X((d[0]+d[1])/2)}" y="${Y0 - 12}" font-size="19" font-weight="500" fill="#24806f" text-anchor="middle">열화</text>`;
+  const span = x1 - x0, step = span > 1200 ? 200 : span > 300 ? 100 : 50;
+  for (let f = Math.ceil(x0 / step) * step; f <= x1; f += step) {
+    if (X(f) < 36 || X(f) > W - 36) continue;
+    s += `<line x1="${X(f)}" x2="${X(f)}" y1="${Y1}" y2="${Y1 + 10}" stroke="#9aa3ad" stroke-width="1.5"/>`;
+    s += `<text x="${X(f)}" y="${Y1 + 34}" font-size="17" fill="#6a737d" text-anchor="middle">${f.toLocaleString()}</text>`;
+  }
+  s += `<line x1="8" x2="${W - 8}" y1="${Y1}" y2="${Y1}" stroke="#9aa3ad" stroke-width="1.5"/>`;
+  round.forEach((h, i) => {
+    const x = Math.max(10, Math.min(W - 10, X(h.f_main)));
+    const c = finalDone ? (h.pred ? RED : BLUE) : "#1f2328";
+    s += `<line x1="${x}" x2="${x}" y1="${Y0 + 24}" y2="${Y1}" stroke="${c}" stroke-width="2.5"/>`;
+    s += `<circle cx="${x}" cy="${Y0 + 12}" r="10" fill="${c}"/>`;
+    s += `<text x="${x}" y="${Y0 + 18}" font-size="13" font-weight="500" fill="#fff" text-anchor="middle">${i + 1}</text>`;
   });
   svg.innerHTML = s;
 }
@@ -159,24 +223,38 @@ function drawDots() {
   let s = "";
   for (let i = 0; i < N; i++) {
     const h = round[i];
-    s += `<div class="dot ${h ? (finalDone ? (h.pred ? "d" : "n") : "g") : ""}"></div>`;
+    const cls = h ? "on " + (finalDone ? (h.pred ? "d" : "n") : "g") : "";
+    const f = h ? Math.round(h.f_main).toLocaleString() : "—";
+    const l = h ? (finalDone ? h.label : "완료") : "";
+    s += `<div class="hit ${cls}"><span class="i">${i + 1}회</span>` +
+         `<span class="f">${f}<small>${h ? "Hz" : ""}</small></span><span class="l">${l}</span></div>`;
   }
-  $("dots").innerHTML = s;
+  $("hits").innerHTML = s;
+  drawVotes();
 }
-function drawHist(extra) {
-  const li = round.map((h, i) => finalDone
-    ? `<li>${i + 1}회: <b class="${h.pred ? "d" : "n"}">${h.label}</b> · ${Math.round(h.f_main).toLocaleString()} Hz</li>`
-    : `<li>${i + 1}회: 완료 · ${Math.round(h.f_main).toLocaleString()} Hz</li>`);
-  if (extra) li.push(`<li class="x">${extra}</li>`);
-  $("hist").innerHTML = li.slice(-6).join("");
+/* 출력 막대 = 유효 타격 중 정상/열화 표의 비율 (판정 규칙인 다수결과 같은 값). 검사 중에는 가림 */
+function drawVotes() {
+  const n = round.length, k = round.filter(h => h.pred).length;
+  const show = finalDone && n > 0;
+  const pn = show ? Math.round(100 * (n - k) / n) : 0, pd = show ? Math.round(100 * k / n) : 0;
+  $("vn").style.width = pn + "%"; $("vd").style.width = pd + "%";
+  const lab = (p, c) => show ? `${p}%<small>${c}/${n}</small>` : (n ? "검사 후 공개" : "");
+  $("vz0").innerHTML = lab(pn, n - k); $("vz1").innerHTML = lab(pd, k);
+  $("vz0").classList.toggle("mute", !show); $("vz1").classList.toggle("mute", !show);
 }
+function drawHist(extra) { $("hist").textContent = extra || ""; }
 function setBig(text, color, sub) {
-  $("big").textContent = text; $("big").style.color = color; $("sub").textContent = sub || "";
+  const m = /^(.*?)\s*\((.*)\)$/.exec(text);
+  $("big").textContent = m ? m[1] : text;
+  $("big2").textContent = m ? m[2] : "";
+  $("big").style.color = color === GRAY ? "#c9ced4" : color;
+  $("big2").style.color = color === GRAY ? "#6a737d" : (color === RED ? "#24806f" : color);
+  $("sub").textContent = sub || "";
 }
 function clearRound() { round = []; finalDone = false; drawBar(); drawDots(); drawHist(); }
 
 /* ---------- 이벤트 처리 (노트북 판정 창과 같은 상태를 따라감) ---------- */
-const AMBER = "#b7791f", INK = "#333";
+const AMBER = "#a86a00", INK = "#1f2328";
 let testing = false;
 function votesN() { return cfg ? cfg.votes : 3; }
 function handle(ev) {
@@ -213,7 +291,7 @@ function handle2(ev) {
   } else if (ev.kind === "final") {
     finalDone = true; testing = false;
     if (p.final === null || p.final === undefined) {
-      setBig("판정 보류", AMBER, `${p.n}회 중 ${p.k}회 열화로 결과가 엇갈림 · 다시 검사합니다`);
+      setBig("판정 보류", AMBER, `${p.n}회 중 ${p.k}회 열화로 결과가 엇갈림 · 다시 검사해 주세요`);
     } else {
       setBig(p.final ? "열화 (진공 손상)" : "정상 (진공 유지)", p.final ? RED : BLUE,
              `판정 완료: ${p.n}회 중 ${p.k}회 열화 · 평균 ${Math.round(p.f_mean).toLocaleString()} Hz`);
